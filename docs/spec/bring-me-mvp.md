@@ -514,3 +514,26 @@ $$\text{Session Earnings} = (\text{Rounds Played} \times 15) + (\text{Rounds Won
 | **Pouch of Coins (250)** | Developer Product | Robux | **R\$ 25** | Instant access to ~8 Speed Boosts. |
 | **Chest of Coins (1,000)** | Developer Product | Robux | **R\$ 75** | Best value soft-currency pack. |
 | **VIP Gamepass** | Gamepass (Perm) | Robux | **R\$ 149** | +20% Coin multiplier on all payouts + Golden Tag Trail + Chat VIP Tag. |
+
+---
+
+## 4. Phase 2 Roadmap & Post-MVP Stretch Goals
+
+### 4.1 Upgradeable Items & Character Gear
+- **Cosmetic & Stat Gear**: Players can equip cosmetic backpacks, sneakers, and gloves that level up using earned Soft Currency or duplicate drops.
+- **Stat Upgrades**:
+  - *Sprint Cooldown Reduction*: Reduces recovery delay between speed power-up activations.
+  - *Carry Resilience*: Extends the tag range required by attackers to successfully force an item drop (e.g. from 7.5 studs to 6.0 studs).
+  - *Golden Gloves*: Grants cosmetic particle impacts when executing successful tags.
+
+### 4.2 Dynamic Shop Restocks & Rarity Tiers
+- **Rotating Daily Shop**: The Intermission shop shifts from static consumables to a timed daily rotation offering tiered cosmetic trails, custom Tag Tool skins, and limited-time item variants.
+- **Rarity Distribution**:
+  - *Common / Rare*: Bought with Soft Currency.
+  - *Epic / Legendary*: Premium Robux or high-tier win milestone unlocks.
+- **Stock Timers**: Client HUD displays a countdown timer indicating when the current shop rotation refreshes.
+
+### 4.3 Station Hazards & Dynamic Vaults
+- **Station Events**: Random in-round events (e.g. *Gym Floor Waxing* causing slippery ice physics, or *Library Quiet Time* where footsteps trigger sound beacons).
+- **Secondary Safe Havens**: Smaller temporary safe zones inside distant stations requiring power-up keys to unlock.
+
