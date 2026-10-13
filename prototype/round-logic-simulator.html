@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>"Bring Me" — Round & PvP State Logic Prototype</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --border: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-hover: #0284c7;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --carrier-gold: #fbbf24;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: var(--bg); color: var(--text); padding: 24px; line-height: 1.5; }
+    .container { max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+
+    header { border-bottom: 1px solid var(--border); padding-bottom: 16px; }
+    h1 { font-size: 1.6rem; color: var(--accent); margin-bottom: 6px; }
+    .subtitle { color: var(--text-muted); font-size: 0.95rem; }
+
+    .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 18px; }
+    .card h2 { font-size: 1.1rem; margin-bottom: 12px; color: #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
+
+    /* State Grid */
+    .state-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 14px; }
+    .stat-box { background: #0f172a; padding: 10px 14px; border-radius: 6px; border: 1px solid var(--border); }
+    .stat-label { font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600; letter-spacing: 0.5px; }
+    .stat-value { font-size: 1.25rem; font-weight: 700; color: #fff; margin-top: 4px; }
+    .stat-value.active { color: var(--success); }
+    .stat-value.gold { color: var(--carrier-gold); }
+    .stat-value.danger { color: var(--danger); }
+
+    /* Action Log */
+    .log-box { background: #0b1120; border: 1px solid var(--border); border-radius: 6px; padding: 10px; font-family: monospace; font-size: 0.85rem; height: 110px; overflow-y: auto; color: #cbd5e1; }
+    .log-entry { margin-bottom: 4px; }
+    .log-entry span.time { color: var(--text-muted); }
+    .log-entry span.success { color: var(--success); }
+    .log-entry span.warn { color: var(--warning); }
+    .log-entry span.alert { color: var(--danger); }
+
+    /* Buttons */
+    .btn-row { display: flex; flex-wrap: wrap; gap: 10px; }
+    button {
+      background: #334155; color: #fff; border: 1px solid #475569; padding: 8px 14px;
+      border-radius: 6px; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: all 0.15s ease;
+    }
+    button:hover:not(:disabled) { background: #475569; border-color: #64748b; }
+    button.primary { background: var(--accent); color: #0f172a; border-color: var(--accent); }
+    button.primary:hover:not(:disabled) { background: var(--accent-hover); }
+    button.danger { background: #991b1b; border-color: #b91c1c; }
+    button.danger:hover:not(:disabled) { background: #b91c1c; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Tabs */
+    .tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 16px; gap: 4px; }
+    .tab { background: transparent; border: none; border-bottom: 2px solid transparent; border-radius: 0; color: var(--text-muted); padding: 8px 14px; }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    /* Walkthrough container */
+    .step-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+    .step-item { display: flex; align-items: center; justify-content: space-between; background: #0f172a; padding: 10px 14px; border-radius: 6px; border: 1px solid var(--border); font-size: 0.9rem; }
+    .step-item.done { border-color: var(--success); opacity: 0.7; }
+    .step-item.current { border-color: var(--accent); background: #132238; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>"Bring Me" — Round & PvP State Logic Prototype</h1>
+    <p class="subtitle">Interactive state model verification for Round Pacing, Carrier Overhead Weld, Safe Zones, Speed Suppression, and Tag Drop Physics.</p>
+  </header>
+
+  <!-- State Panel -->
+  <div class="card">
+    <h2>
+      <span>Live Match & Entity State</span>
+      <span id="badge-phase" style="font-size:0.8rem; padding: 4px 8px; border-radius: 4px; background: #0369a1;">INTERMISSION</span>
+    </h2>
+    <div class="state-grid">
+      <div class="stat-box">
+        <div class="stat-label">Phase & Timer</div>
+        <div class="stat-value" id="val-timer">Intermission (15s)</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Target Item</div>
+        <div class="stat-value gold" id="val-item">Microscope</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Current Carrier</div>
+        <div class="stat-value" id="val-carrier">None (On Floor)</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Player 1 (Alice)</div>
+        <div class="stat-value" id="val-p1">In Hub (Safe)</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Player 2 (Bob)</div>
+        <div class="stat-value" id="val-p2">In Hub (Safe)</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Last Round Winner</div>
+        <div class="stat-value active" id="val-winner">None</div>
+      </div>
+    </div>
+
+    <div class="stat-label" style="margin-bottom: 6px;">Event Log:</div>
+    <div class="log-box" id="event-log"></div>
+  </div>
+
+  <!-- Free Play Actions -->
+  <div class="card">
+    <h2>Free-Play Action Controls</h2>
+    <div class="btn-row">
+      <button class="primary" id="btn-tick">Advance Phase / Time</button>
+      <button id="btn-p1-pickup">Alice Grabs Item</button>
+      <button id="btn-p2-pickup">Bob Grabs Item</button>
+      <button id="btn-p2-tag" class="danger">Bob Tags Alice</button>
+      <button id="btn-p1-tag" class="danger">Alice Tags Bob</button>
+      <button id="btn-p1-speed">Alice Uses Speed Boost</button>
+      <button id="btn-move-hub">Move Alice into Hub</button>
+      <button id="btn-move-station">Move Alice into Station</button>
+      <button class="primary" id="btn-deposit">Deposit Target Item</button>
+      <button id="btn-reset" style="margin-left:auto;">Reset State</button>
+    </div>
+  </div>
+
+  <!-- Guided Walkthroughs -->
+  <div class="card">
+    <h2>Guided Walkthroughs (Verify Tricky Scenarios)</h2>
+    <div class="tabs">
+      <button class="tab active" data-tab="scenario-happy">1. Happy Path Delivery</button>
+      <button class="tab" data-tab="scenario-pvp">2. PvP Steal & Scramble</button>
+      <button class="tab" data-tab="scenario-safezone">3. Hub Safe Zone Protection</button>
+      <button class="tab" data-tab="scenario-speed">4. Carrier Speed Suppression</button>
+    </div>
+
+    <div id="tab-content">
+      <p id="scenario-desc" style="color: var(--text-muted); margin-bottom: 12px;"></p>
+      <div class="step-list" id="step-container"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==========================================
+// 1. PURE DOMAIN STATE MACHINE & REDUCER
+// (Portable module: liftable into production)
+// ==========================================
+const GameModel = {
+  createInitialState() {
+    return {
+      phase: "Intermission", // Intermission, Countdown, Scavenge, Celebration
+      timeRemaining: 15,
+      targetItem: { id: "Microscope", name: "Microscope", station: "ScienceLab", state: "Waiting" }, // Waiting, InStation, Carried, Dropped, Deposited
+      carrier: null, // "Alice" | "Bob" | null
+      itemLocation: "Station", // "Station" | "Hub" | "Carried"
+      winner: null,
+      players: {
+        Alice: { location: "Hub", inSafeZone: true, walkSpeed: 16, speedBoostActive: false, dropDebounce: 0, tagImmunity: 0 },
+        Bob: { location: "Hub", inSafeZone: true, walkSpeed: 16, speedBoostActive: false, dropDebounce: 0, tagImmunity: 0 },
+      },
+      log: ["Server initialized. Intermission started (15s)."]
+    };
+  },
+
+  advanceTimer(state) {
+    const next = JSON.parse(JSON.stringify(state));
+    if (next.phase === "Intermission") {
+      next.phase = "Countdown";
+      next.timeRemaining = 5;
+      next.log.push("Countdown began (5s). Doors unlocking.");
+    } else if (next.phase === "Countdown") {
+      next.phase = "Scavenge";
+      next.timeRemaining = 75;
+      next.targetItem.state = "InStation";
+      next.players.Alice.location = "ScienceLab";
+      next.players.Alice.inSafeZone = false;
+      next.players.Bob.location = "ScienceLab";
+      next.players.Bob.inSafeZone = false;
+      next.log.push("Scavenge started! Microscope spawned in Science Lab.");
+    } else if (next.phase === "Scavenge") {
+      next.phase = "Celebration";
+      next.timeRemaining = 5;
+      next.winner = null;
+      next.targetItem.state = "Waiting";
+      next.carrier = null;
+      next.log.push("Timer expired! Scavenge ended in a draw.");
+    } else if (next.phase === "Celebration") {
+      return GameModel.createInitialState();
+    }
+    return next;
+  },
+
+  pickupItem(state, player) {
+    const next = JSON.parse(JSON.stringify(state));
+    if (next.phase !== "Scavenge") {
+      next.log.push(`[BLOCKED] Cannot grab item during ${next.phase}.`);
+      return next;
+    }
+    if (next.carrier) {
+      next.log.push(`[BLOCKED] Item already carried by ${next.carrier}.`);
+      return next;
+    }
+    if (next.players[player].dropDebounce > Date.now()) {
+      next.log.push(`[BLOCKED] ${player} cannot pickup: drop debounce active!`);
+      return next;
+    }
+
+    next.carrier = player;
+    next.targetItem.state = "Carried";
+    next.itemLocation = "Carried";
+
+    // Anti-runaway: enforce default walkspeed and suppress speed boost
+    next.players[player].speedBoostActive = false;
+    next.players[player].walkSpeed = 16;
+
+    next.log.push(`[PICKUP] ${player} grabbed Microscope! Item attached Overhead with Highlight.`);
+    return next;
+  },
+
+  tagCarrier(state, attacker, victim) {
+    const next = JSON.parse(JSON.stringify(state));
+    if (next.carrier !== victim) {
+      next.log.push(`[BLOCKED] ${victim} is not the Carrier.`);
+      return next;
+    }
+    if (next.players[attacker].inSafeZone || next.players[victim].inSafeZone) {
+      next.log.push(`[BLOCKED] Tag rejected: Hub Safe Zone protection active!`);
+      return next;
+    }
+    if (next.players[victim].tagImmunity > Date.now()) {
+      next.log.push(`[BLOCKED] ${victim} has active tag immunity.`);
+      return next;
+    }
+
+    // Force drop
+    next.carrier = null;
+    next.targetItem.state = "Dropped";
+    next.itemLocation = next.players[victim].location;
+    next.players[victim].dropDebounce = Date.now() + 1500;
+    next.players[victim].tagImmunity = Date.now() + 1500;
+
+    next.log.push(`[TAG HIT!] ${attacker} tagged ${victim}! Item dropped with physics. ${victim} has 1.5s pickup debounce.`);
+    return next;
+  },
+
+  activateSpeedBoost(state, player) {
+    const next = JSON.parse(JSON.stringify(state));
+    if (next.carrier === player) {
+      next.log.push(`[BLOCKED] Speed boost suppressed while acting as Carrier!`);
+      return next;
+    }
+    next.players[player].speedBoostActive = true;
+    next.players[player].walkSpeed = 24;
+    next.log.push(`[POWER-UP] ${player} activated Speed Boost (24 studs/s).`);
+    return next;
+  },
+
+  depositItem(state, player) {
+    const next = JSON.parse(JSON.stringify(state));
+    if (next.phase !== "Scavenge") return next;
+    if (next.carrier !== player) {
+      next.log.push(`[BLOCKED] Only active Carrier can deposit.`);
+      return next;
+    }
+    if (!next.players[player].inSafeZone) {
+      next.log.push(`[BLOCKED] Must be inside the Hub Deposit Zone to score.`);
+      return next;
+    }
+
+    next.phase = "Celebration";
+    next.timeRemaining = 5;
+    next.winner = player;
+    next.carrier = null;
+    next.targetItem.state = "Deposited";
+    next.log.push(`[WIN!] ${player} deposited Microscope into Hub! Round won (+50 coins to ${player}, +15 coins to all).`);
+    return next;
+  },
+
+  setPlayerLocation(state, player, location, inSafeZone) {
+    const next = JSON.parse(JSON.stringify(state));
+    next.players[player].location = location;
+    next.players[player].inSafeZone = inSafeZone;
+    next.log.push(`${player} moved to ${location} (SafeZone: ${inSafeZone}).`);
+    return next;
+  }
+};
+
+// ==========================================
+// 2. UI SHELL & DISPATCH HANDLERS
+// ==========================================
+let currentState = GameModel.createInitialState();
+
+function updateUI() {
+  document.getElementById("badge-phase").innerText = currentState.phase.toUpperCase();
+  document.getElementById("val-timer").innerText = `${currentState.phase} (${currentState.timeRemaining}s)`;
+  document.getElementById("val-item").innerText = `${currentState.targetItem.name} [${currentState.targetItem.state}]`;
+  document.getElementById("val-carrier").innerText = currentState.carrier ? `${currentState.carrier} (Overhead Weld)` : `None (${currentState.targetItem.state})`;
+  document.getElementById("val-carrier").className = currentState.carrier ? "stat-value gold" : "stat-value";
+  
+  document.getElementById("val-p1").innerText = `${currentState.players.Alice.location} (${currentState.players.Alice.walkSpeed} studs/s)`;
+  document.getElementById("val-p2").innerText = `${currentState.players.Bob.location} (${currentState.players.Bob.walkSpeed} studs/s)`;
+  document.getElementById("val-winner").innerText = currentState.winner ? `${currentState.winner} (1st Place)` : "None";
+
+  // Render log
+  const logBox = document.getElementById("event-log");
+  logBox.innerHTML = currentState.log.map(msg => {
+    let cls = "";
+    if (msg.includes("[WIN!]")) cls = "success";
+    else if (msg.includes("[TAG HIT!]")) cls = "alert";
+    else if (msg.includes("[BLOCKED]")) cls = "warn";
+    return `<div class="log-entry ${cls}">• ${msg}</div>`;
+  }).join("");
+  logBox.scrollTop = logBox.scrollHeight;
+}
+
+// Attach free-play buttons
+document.getElementById("btn-tick").onclick = () => { currentState = GameModel.advanceTimer(currentState); updateUI(); };
+document.getElementById("btn-p1-pickup").onclick = () => { currentState = GameModel.pickupItem(currentState, "Alice"); updateUI(); };
+document.getElementById("btn-p2-pickup").onclick = () => { currentState = GameModel.pickupItem(currentState, "Bob"); updateUI(); };
+document.getElementById("btn-p2-tag").onclick = () => { currentState = GameModel.tagCarrier(currentState, "Bob", "Alice"); updateUI(); };
+document.getElementById("btn-p1-tag").onclick = () => { currentState = GameModel.tagCarrier(currentState, "Alice", "Bob"); updateUI(); };
+document.getElementById("btn-p1-speed").onclick = () => { currentState = GameModel.activateSpeedBoost(currentState, "Alice"); updateUI(); };
+document.getElementById("btn-move-hub").onclick = () => { currentState = GameModel.setPlayerLocation(currentState, "Alice", "Hub Deposit Zone", true); updateUI(); };
+document.getElementById("btn-move-station").onclick = () => { currentState = GameModel.setPlayerLocation(currentState, "Alice", "Station Corridor", false); updateUI(); };
+document.getElementById("btn-deposit").onclick = () => { currentState = GameModel.depositItem(currentState, currentState.carrier || "Alice"); updateUI(); };
+document.getElementById("btn-reset").onclick = () => { currentState = GameModel.createInitialState(); updateUI(); };
+
+// ==========================================
+// 3. GUIDED WALKTHROUGHS
+// ==========================================
+const Scenarios = {
+  "scenario-happy": {
+    desc: "Verify standard round completion: Intermission completes, Scavenge begins, Alice grabs the item in the station, returns to Hub, and steps into the Deposit Zone to claim victory.",
+    steps: [
+      { label: "1. Advance Phase to Countdown", action: () => { currentState = GameModel.advanceTimer(currentState); } },
+      { label: "2. Advance Phase to Scavenge", action: () => { currentState = GameModel.advanceTimer(currentState); } },
+      { label: "3. Alice Grabs Target Item", action: () => { currentState = GameModel.pickupItem(currentState, "Alice"); } },
+      { label: "4. Alice Runs to Hub Deposit Zone", action: () => { currentState = GameModel.setPlayerLocation(currentState, "Alice", "Hub Deposit Zone", true); } },
+      { label: "5. Deposit Item for Win", action: () => { currentState = GameModel.depositItem(currentState, "Alice"); } }
+    ]
+  },
+  "scenario-pvp": {
+    desc: "Verify PvP Tag dynamics: Alice picks up the item, Bob tags Alice outside the Hub, forcing the item to drop. Alice is temporarily blocked from re-grabbing, allowing Bob to steal it.",
+    steps: [
+      { label: "1. Start Scavenge Round", action: () => { currentState = GameModel.advanceTimer(GameModel.advanceTimer(currentState)); } },
+      { label: "2. Alice Picks Up Item", action: () => { currentState = GameModel.pickupItem(currentState, "Alice"); } },
+      { label: "3. Bob Tags Alice in Corridor", action: () => { currentState = GameModel.tagCarrier(currentState, "Bob", "Alice"); } },
+      { label: "4. Alice Attempts Immediate Re-Grab (Blocked by 1.5s Debounce)", action: () => { currentState = GameModel.pickupItem(currentState, "Alice"); } },
+      { label: "5. Bob Grabs Dropped Item", action: () => { currentState = GameModel.pickupItem(currentState, "Bob"); } }
+    ]
+  },
+  "scenario-safezone": {
+    desc: "Verify Hub Safe Zone anti-camping protection: When Alice enters the Hub with the item, Bob attempts to tag her at the goal line, but the action is rejected by Safe Zone protection.",
+    steps: [
+      { label: "1. Start Scavenge Round", action: () => { currentState = GameModel.advanceTimer(GameModel.advanceTimer(currentState)); } },
+      { label: "2. Alice Picks Up Item", action: () => { currentState = GameModel.pickupItem(currentState, "Alice"); } },
+      { label: "3. Alice Enters Hub Safe Zone", action: () => { currentState = GameModel.setPlayerLocation(currentState, "Alice", "Hub (Safe Zone)", true); } },
+      { label: "4. Bob Attempts Tag (Rejected by Safe Zone)", action: () => { currentState = GameModel.tagCarrier(currentState, "Bob", "Alice"); } },
+      { label: "5. Alice Successfully Deposits Item", action: () => { currentState = GameModel.depositItem(currentState, "Alice"); } }
+    ]
+  },
+  "scenario-speed": {
+    desc: "Verify Carrier Speed Suppression: Alice activates Speed Boost (24 studs/s), but when she grabs the Target Item, her speed boost is revoked and speed is capped at 16 studs/s.",
+    steps: [
+      { label: "1. Start Scavenge Round", action: () => { currentState = GameModel.advanceTimer(GameModel.advanceTimer(currentState)); } },
+      { label: "2. Alice Uses Speed Boost (Moves at 24 studs/s)", action: () => { currentState = GameModel.activateSpeedBoost(currentState, "Alice"); } },
+      { label: "3. Alice Grabs Target Item (Speed Revoked to 16)", action: () => { currentState = GameModel.pickupItem(currentState, "Alice"); } },
+      { label: "4. Alice Attempts Speed Boost While Carrier (Blocked)", action: () => { currentState = GameModel.activateSpeedBoost(currentState, "Alice"); } }
+    ]
+  }
+};
+
+let currentTab = "scenario-happy";
+let currentStepIdx = 0;
+
+function renderScenario() {
+  const scenario = Scenarios[currentTab];
+  document.getElementById("scenario-desc").innerText = scenario.desc;
+  const container = document.getElementById("step-container");
+  container.innerHTML = "";
+
+  scenario.steps.forEach((step, idx) => {
+    const div = document.createElement("div");
+    div.className = "step-item" + (idx < currentStepIdx ? " done" : (idx === currentStepIdx ? " current" : ""));
+    div.innerHTML = `
+      <span>${step.label}</span>
+      <button class="${idx === currentStepIdx ? 'primary' : ''}" ${idx !== currentStepIdx ? 'disabled' : ''}>
+        ${idx < currentStepIdx ? '✓ Done' : (idx === currentStepIdx ? 'Execute Step' : 'Pending')}
+      </button>
+    `;
+    if (idx === currentStepIdx) {
+      div.querySelector("button").onclick = () => {
+        step.action();
+        currentStepIdx++;
+        updateUI();
+        renderScenario();
+      };
+    }
+    container.appendChild(div);
+  });
+}
+
+document.querySelectorAll(".tab").forEach(tab => {
+  tab.onclick = () => {
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
+    currentTab = tab.dataset.tab;
+    currentStepIdx = 0;
+    currentState = GameModel.createInitialState();
+    updateUI();
+    renderScenario();
+  };
+});
+
+// Init
+updateUI();
+renderScenario();
+</script>
+</body>
+</html>
